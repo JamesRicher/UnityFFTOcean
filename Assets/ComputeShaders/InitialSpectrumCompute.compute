@@ -1,0 +1,71 @@
+#pragma kernel GenerateInitialSpectrum
+#pragma kernel GenerateConjugatedInitialSpectrum
+
+#include "Assets/ShaderIncludes/PhillipsSpectrumParams.cginc"
+
+RWTexture2D<float4> _initialSpectrumTexture;
+StructuredBuffer<PhillipsSpectrumParams> _phillipsParams;
+StructuredBuffer<float2> _uniformRandomData;
+
+uint _N;
+
+// global constants
+float _PI;
+float _GRAVITY;
+
+// Method for generating two iid N(0,1) samples from a pair of U[0,1] samples
+float2 BoxMuller(float2 uniformPair)
+{
+    float R = sqrt(-2*log(uniformPair.x));
+    float theta = 2*_PI*uniformPair.y;
+
+    return float2(R*cos(theta), R*sin(theta));
+}
+
+float2 PixelIDToKVector(uint3 id)
+{
+    int2 centredID = id.xy - (_N/2);
+    float kx = 2*_PI*centredID.x / _phillipsParams[0].Lx;
+    float ky = 2*_PI*centredID.y / _phillipsParams[0].Lz;
+
+    return float2(kx,ky);
+}
+
+[numthreads(8,8,1)]
+void GenerateInitialSpectrum (uint3 id : SV_DispatchThreadID)
+{
+    // Get random N(0,1) samples
+    int randomDataIndex = id.x + id.y * _N;
+    float2 u = _uniformRandomData[randomDataIndex];
+    float2 eps = BoxMuller(u);
+
+    // Evaluate the phillips spectrum at the current pixel
+    float2 kVector = PixelIDToKVector(id);
+    float k = length(kVector);
+    float2 kHat = kVector / k;
+
+    float cosineTerm = pow(abs(dot(kHat, _phillipsParams[0].omegaHat)), _phillipsParams[0].P);
+    float expTerm = exp(-1/(pow(k * _phillipsParams[0].L, 2.0f)));
+    float Pk = _phillipsParams[0].C * expTerm * cosineTerm / pow(k, 4);
+
+    // Apply the small wave correction factor
+    float smallWaveCorrection = exp(-pow(k * _phillipsParams[0].l, 2));
+    Pk *= smallWaveCorrection;
+
+    float2 h0 = eps * sqrt(Pk/2.0f);
+    if (id.x == _N/2 && id.y == _N/2)
+    {
+        h0 = float2(0,0);
+    }
+
+    _initialSpectrumTexture[id.xy] = float4(h0.x, h0.y, 0, 0);
+}
+
+[numthreads(8,8,1)]
+void GenerateConjugatedInitialSpectrum(uint3 id : SV_DispatchThreadID)
+{
+    float2 h0 = _initialSpectrumTexture[id.xy].xy;
+    uint2 minusKIndex = uint2((_N - id.x) % _N, (_N - id.y) % _N);
+    float2 h0MinusK = _initialSpectrumTexture[minusKIndex].xy;
+    _initialSpectrumTexture[id.xy] = float4(h0.x, h0.y, h0MinusK.x, -h0MinusK.y);
+}

@@ -1,0 +1,38 @@
+#pragma kernel GenerateButterflyTexture
+
+#include "Assets/ShaderIncludes/ComplexNumbers.cginc"
+
+RWTexture2D<float4> _butterflyTexture;
+StructuredBuffer<int> _bitReversedIndices;
+
+float _PI; // globally defined shader constant
+int _N;
+
+[numthreads(1,8,1)]
+void GenerateButterflyTexture (uint3 id : SV_DispatchThreadID)
+{
+    // id.x = current stage (from zero)
+    // id.y = current input index
+    // ouptut (x,y) = twiddle factor, (z,w) = input indices for butterfly operation
+    // Note: this texture is upside down when compared to conventional butterfly diagrams
+
+    // Getting twiddle factors
+    int currentStage = id.x + 1;
+    int groupCount = _N >> currentStage;
+    float k = id.y * groupCount % _N;
+
+    float ang = k * 2 * _PI / (float)_N;
+    float2 W = ComplexExp(ang);
+
+    // Getting indices 
+    uint butterflySpan = (uint)pow(2, id.x);
+    uint groupSize = (uint)pow(2, id.x + 1);
+    bool inTopButterfly = ((id.y % groupSize) < butterflySpan);
+    bool inStageOne = id.x == 0;
+
+    int2 indices = inTopButterfly ? int2(id.y, id.y + butterflySpan) : int2(id.y - butterflySpan, id.y);
+    indices = lerp(indices, int2(_bitReversedIndices[indices.x], _bitReversedIndices[indices.y]), inStageOne);
+
+    _butterflyTexture[id.xy] = float4(W.x, W.y, indices.x, indices.y);
+
+}

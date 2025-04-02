@@ -1,0 +1,21 @@
+#pragma kernel PermuteAndScale
+
+Texture2D<float4> _pingpong0Texture;
+Texture2D<float4> _pingpong1Texture;
+RWTexture2D<float4> _outputTexture;
+
+int _N;
+int _pingpong; // either 1 or 0 representing which texture is the output and which is the input
+
+[numthreads(8,8,1)]
+void PermuteAndScale(uint3 id : SV_DispatchThreadID)
+{
+    float factors[] = { 1.0f, -1.0f };
+    int index = (id.x + id.y) % 2;
+    float factor = factors[index];
+
+    // pingpong always = 0 as we do a vertical and horizontal pass i.e.
+    // an even number of steps
+    float2 output = factor * _pingpong0Texture[id.xy].xy / (_N*_N);
+    _outputTexture[id.xy] = float4(output.x, output.y, 0, 1);
+}

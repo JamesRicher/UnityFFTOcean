@@ -1,0 +1,92 @@
+#pragma kernel GenerateMovingSpectrum
+
+#include "Assets/ShaderIncludes/ComplexNumbers.cginc"
+#include "Assets/ShaderIncludes/PhillipsSpectrumParams.cginc"
+
+Texture2D<float4> _initialSpectrumTexture;
+RWTexture2D<float4> _movingSpectrumTexture;
+
+RWTexture2D<float4> _xSlopeSpectrumTexture;
+RWTexture2D<float4> _zSlopeSpectrumTexture;
+
+RWTexture2D<float4> _xDisplacementSpectrumTexture;
+RWTexture2D<float4> _zDisplacementSpectrumTexture;
+
+RWTexture2D<float4> _xDxDisplacementSpectrumTexture;
+RWTexture2D<float4> _zDzDisplacementSpectrumTexture;
+RWTexture2D<float4> _xDzDisplacementSpectrumTexture;
+
+StructuredBuffer<PhillipsSpectrumParams> _phillipsParams;
+
+float _currentTime;
+uint _N;
+
+// global constants
+float _PI;
+float _GRAVITY;
+
+float DispersionRelation(float k)
+{
+    return sqrt(_GRAVITY * k);
+}
+
+float2 PixelIDToKVector(uint3 id)
+{
+    int2 centredID = id.xy - float2(_N/2, _N/2);
+    float kx = 2*_PI*centredID.x / _phillipsParams[0].Lx;
+    float ky = 2*_PI*centredID.y / _phillipsParams[0].Lz;
+
+    return float2(kx,ky);
+}
+
+[numthreads(8,8,1)]
+void GenerateMovingSpectrum(uint3 id : SV_DispatchThreadID)
+{
+    // height spectrum
+    float2 kVector = PixelIDToKVector(id);
+    float k = length(kVector);
+    float dispersion = DispersionRelation(k);
+    float theta = dispersion * _currentTime;
+
+    float2 h = ComplexMult(_initialSpectrumTexture[id.xy].xy, ComplexExp(theta))
+        + ComplexMult(_initialSpectrumTexture[id.xy].zw, ComplexExp(-theta));
+
+    _movingSpectrumTexture[id.xy] = float4(h.x,h.y,0,1);
+
+    // slopes spectra
+    float2 ih = float2(-h.y, h.x);
+    bool2 atFirstIndex = bool2(id.x == 0, id.y == 0);
+    bool kHasZeroMagnitude = id.x == _N/2 && id.y == _N/2;
+
+    float2 xSlope = lerp(kVector.x * ih, float2(0,0), atFirstIndex.x);
+    float2 zSlope = lerp(kVector.y * ih, float2(0,0), atFirstIndex.y);
+
+    _xSlopeSpectrumTexture[id.xy] = float4(xSlope.x, xSlope.y, 0, 0);
+    _zSlopeSpectrumTexture[id.xy] = float4(zSlope.x, zSlope.y, 0, 0);
+
+    // displacement spectra
+    float2 xDisp = float2(0,0);
+    float2 zDisp = float2(0,0);
+
+    if (!kHasZeroMagnitude && !atFirstIndex.x)
+    {
+        xDisp = ih * kVector.x / k;
+    }
+
+    if (!kHasZeroMagnitude && !atFirstIndex.y)
+    {
+        zDisp = ih * kVector.y / k;
+    }
+
+    _xDisplacementSpectrumTexture[id.xy] = float4(xDisp.x, xDisp.y, 0, 0);
+    _zDisplacementSpectrumTexture[id.xy] = float4(zDisp.x, zDisp.y, 0, 0);
+
+    // displacement derivs spectra
+    float2 xDxDisp = lerp(kVector.x * float2(-xDisp.y, xDisp.x), float2(0,0), atFirstIndex.x);
+    float2 zDzDisp = lerp(kVector.y * float2(-zDisp.y, zDisp.x), float2(0,0), atFirstIndex.y);
+    float2 xDzDisp = lerp(kVector.y * float2(-xDisp.y, xDisp.x), float2(0,0), atFirstIndex.x);
+
+    _zDzDisplacementSpectrumTexture[id.xy] = float4(xDxDisp.x, xDxDisp.y, 0, 0);
+    _xDxDisplacementSpectrumTexture[id.xy] = float4(zDzDisp.x, zDzDisp.y, 0, 0);
+    _xDzDisplacementSpectrumTexture[id.xy] = float4(xDzDisp.x, xDzDisp.y, 0, 0);
+}

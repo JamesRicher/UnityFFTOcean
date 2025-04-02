@@ -1,0 +1,60 @@
+#pragma kernel HorizontalButterfly
+#pragma kernel VerticalButterfly
+
+#include "Assets/ShaderIncludes/ComplexNumbers.cginc"
+
+Texture2D<float4> _butterflyTexture;
+RWTexture2D<float4> _pingpong0Texture;
+RWTexture2D<float4> _pingpong1Texture;
+
+int _N;
+float _PI;
+int _currentStage;
+int _pingpong; // either 1 or 0 representing which texture is the output and which is the input
+
+[numthreads(8,8,1)]
+void HorizontalButterfly(uint3 id : SV_DispatchThreadID)
+{
+    float4 butterflyData = _butterflyTexture[int2(_currentStage, id.x)];
+    float2 W = butterflyData.xy;
+
+    if (_pingpong == 0)
+    {
+        float2 p = _pingpong0Texture[int2(butterflyData.z, id.y)].xy;
+        float2 q = _pingpong0Texture[int2(butterflyData.w, id.y)].xy;
+
+        float2 output = p + ComplexMult(W,q);
+        _pingpong1Texture[id.xy] = float4(output.x, output.y, 0, 0);
+    }
+    else
+    {
+        float2 p = _pingpong1Texture[int2(butterflyData.z, id.y)].xy;
+        float2 q = _pingpong1Texture[int2(butterflyData.w, id.y)].xy;
+
+        float2 output = p + ComplexMult(W,q);
+        _pingpong0Texture[id.xy] = float4(output.x, output.y, 0, 0);
+    }
+}
+
+[numthreads(8,8,1)]
+void VerticalButterfly(uint3 id : SV_DispatchThreadID)
+{
+    float4 butterflyData = _butterflyTexture[int2(_currentStage, id.y)];
+    float2 W = butterflyData.xy;
+
+    if (_pingpong == 0)
+    {
+        float2 p = _pingpong0Texture[int2(id.x, butterflyData.z)].xy;
+        float2 q = _pingpong0Texture[int2(id.x, butterflyData.w)].xy;
+        float2 output = p + ComplexMult(W,q);
+        _pingpong1Texture[id.xy] = float4(output.x, output.y, 0, 0);
+    }
+    else
+    {
+        float2 p = _pingpong1Texture[int2(id.x, butterflyData.z)].xy;
+        float2 q = _pingpong1Texture[int2(id.x, butterflyData.w)].xy;
+
+        float2 output = p + ComplexMult(W,q);
+        _pingpong0Texture[id.xy] = float4(output.x, output.y, 0, 0);
+    }
+}

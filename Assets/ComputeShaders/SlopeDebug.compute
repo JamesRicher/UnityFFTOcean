@@ -1,0 +1,12 @@
+#pragma kernel SlopeDebug
+
+Texture2D<float4> _slopeVecTexture;
+RWTexture2D<float4> _output;
+
+[numthreads(8,8,1)]
+void SlopeDebug (uint3 id : SV_DispatchThreadID)
+{
+    float4 slopeVecSample =  _slopeVecTexture[id.xy];
+    _output[id.xy] = float4(slopeVecSample.x, slopeVecSample.y, 0, 1);
+}
+
