@@ -5,7 +5,7 @@ An implementation of Jerry Tessendorf's method of ocean surface simulation based
 - A GPU implementation of the 2D inverse FFT using compute shaders.
 - Customizable wave spectrum (Phillip's Spectrum) with properties for wind direction, speed and simulation size.
 - Parameters for surface foam and swell intensity.
-- 
+  
 <img width="1105" alt="Screenshot 2025-04-02 at 15 44 09" src="https://github.com/user-attachments/assets/9741fdf4-53a2-4389-a78a-0670a9db6053" />
 
 ### References:
