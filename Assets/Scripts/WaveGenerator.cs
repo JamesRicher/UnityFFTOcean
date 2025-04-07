@@ -60,7 +60,7 @@ namespace OceanRendering
 
         // Spectrum parameters
         private PhillipsSpectrumParams _phillipsParams = new PhillipsSpectrumParams(
-            100f, 32, new Vector2(1f,0.7f), 400, 400, 4, 0.0f);
+            100f, 38, new Vector2(1f,0.7f), 500, 500, 4, 0.0f);
         private PhillipsSpectrumParams[] _phillipsParamsArray = new PhillipsSpectrumParams[1];
         private ComputeBuffer _phillipsParamsBuffer;
         private List<ComputeBuffer> _computeBuffers = new List<ComputeBuffer>();
