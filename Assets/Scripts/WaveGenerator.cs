@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-// This is a test comment
-// This is a line for blog-branch
-
 namespace OceanRendering
 {
     [RequireComponent(typeof(MeshRenderer))]
